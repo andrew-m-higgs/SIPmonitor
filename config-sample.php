@@ -8,18 +8,34 @@
   $dbuser = 'root';
   $dbpass = '';
 
-  //System settings
+  // Call Quality settings: Calls with values worse than these will be
+  // highlighted
+  // ugly (bold red by default)
+  $ugly_loss_avg   =  3; // measured in percentage
+  $ugly_jitter_avg = 30; // measured in ms
+  // bad (red by default)
+  $bad_loss_avg   =  2; // measured in percentage
+  $bad_jitter_avg = 20; // measured in ms
+
+  // System settings
   date_default_timezone_set('Africa/Johannesburg');
+
+  // Show debug SQL
+  $show_sql = False;
+
   // commands
-  $cmd_listcalls = '/bin/echo listcalls | /usr/bin/nc localhost 5029';
-  $cmd_sip_registry = '/usr/sbin/asterisk -x  "sip show registry"';
-  $cmd_iax2_registry = '/usr/sbin/asterisk -x  "iax2 show registry"';
-  $cmd_show_channels = '/usr/sbin/asterisk -x "core show channels verbose"';
+  $cmd_listcalls        = '/bin/echo listcalls | /usr/bin/nc localhost 5029';
+  $cmd_sip_registry     = '/usr/sbin/asterisk -x  "sip show registry"';
+  $cmd_iax2_registry    = '/usr/sbin/asterisk -x  "iax2 show registry"';
+  $cmd_show_channels    = '/usr/sbin/asterisk -x "core show channels verbose"';
   $cmd_sip_channelstats = '/usr/sbin/asterisk -x  "sip show channelstats"';
-  $cmd_iax2_netstats = '/usr/sbin/asterisk -x  "iax2 show netstats"';
+  $cmd_iax2_netstats    = '/usr/sbin/asterisk -x  "iax2 show netstats"';
 
   // CDR settings
-  $cdr_num_calls_per_page = 15;
+  $cdr_num_calls_per_page = 10;
+
+  // SIP responses to ignore for cdr
+  $sip_responses_to_ignore = '487'; // comma separated. last sip response
 
   // SIP response code descriptions
   $sip_response[100] = 'Trying';
@@ -77,16 +93,16 @@
   $sip_response[606] = 'Not Acceptable';
 
   // SIP payload types
-  $sip_payload[0] = "8kHz PCMU codec";
-  $sip_payload[1] = "8kHz 1016 codec";
-  $sip_payload[2] = "8kHz G726-32 codec";
-  $sip_payload[3] = "8kHz GSM codec";
-  $sip_payload[4] = "8kHz G723 codec";
-  $sip_payload[5] = "8kHz DVI4 codec";
-  $sip_payload[6] = "16kHz DVI4 codec";
-  $sip_payload[7] = "8kHz LPC codec";
-  $sip_payload[8] = "8kHz PCMA codec";
-  $sip_payload[9] = "8kHz G722 codec";
+  $sip_payload[0]  = "8kHz PCMU codec";
+  $sip_payload[1]  = "8kHz 1016 codec";
+  $sip_payload[2]  = "8kHz G726-32 codec";
+  $sip_payload[3]  = "8kHz GSM codec";
+  $sip_payload[4]  = "8kHz G723 codec";
+  $sip_payload[5]  = "8kHz DVI4 codec";
+  $sip_payload[6]  = "16kHz DVI4 codec";
+  $sip_payload[7]  = "8kHz LPC codec";
+  $sip_payload[8]  = "8kHz PCMA codec";
+  $sip_payload[9]  = "8kHz G722 codec";
   $sip_payload[10] = "44.1kHz stereo L16 codec";
   $sip_payload[11] = "44.1kHz mono L16 codec";
   $sip_payload[12] = "8kHz QCELP codec";

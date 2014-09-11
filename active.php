@@ -56,6 +56,14 @@
 
   ?>
   </table>
-  <h5>SIP Channelstats</h5><pre><?php for ($i = 0; $i < count($sip_channelstats); $i++) echo $sip_channelstats[$i] . "<br />" ?></pre>
+  <h5>SIP Channelstats</h5>
+    <pre><?php
+           foreach ($sip_channelstats as $line) {
+             //if (preg_match("/         /", $line)) {
+               preg_replace('/\s\s\s\s\s\s\s\s/', ' 00:00:00', $line);
+              //}
+             echo $line . "<br />";
+           }
+         ?></pre>
   <h5>IAX2 Netstats</h5><pre><?php for ($i = 0; $i < count($iax2_netstats); $i++) echo $iax2_netstats[$i] . "<br />" ?></pre>
 </div>

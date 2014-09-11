@@ -44,13 +44,13 @@
 
 <table class="sortable" style="width:90%">
 <tr>
-  <th>ID</th>
-  <th>Call Start<br />(Duration)<br />Connected</th>
-  <th>Caller Num<br />(Name)<br />Sip Agent</th>
-  <th>Caller IP<br />RTP MOS<br />Delay Dist<br />Loss Dist</th>
-  <th>Last Response</th>
-  <th>Called Num<br />Sip Agent</th>
-  <th>Called IP<br />RTP MOS<br />Delay Dist<br />Loss Dist</th>
+  <th style="text-align:center">ID</th>
+  <th style="text-align:center">Call Start<br />(Duration)<br />Connected</th>
+  <th style="text-align:right">Caller Num<br />(Name)<br />Codec</th>
+  <th style="text-align:right">Caller IP<br />RTP MOS<br />Delay Dist<br />Loss Dist</th>
+  <th style="text-align:center">Last Response</th>
+  <th style="text-align:right">Called Num</th>
+  <th style="text-align:right">Called IP<br />RTP MOS<br />Delay Dist<br />Loss Dist</th>
 </tr>
 <?php
   global $cdr_num_calls_per_page;
@@ -77,33 +77,48 @@
   $select .= "inet_ntoa(c.sipcallerip) AS caller_ip, c.a_mos_f1_mult10, c.a_mos_f2_mult10, c.a_mos_adapt_mult10, \n";
   $select .= "c.a_d50, c.a_d70, c.a_d90, c.a_d120, c.a_d150, c.a_d200, c.a_d300, \n";
   $select .= "c.a_sl1, c.a_sl2, c.a_sl3, c.a_sl4, c.a_sl5, c.a_sl6, c.a_sl7, c.a_sl8, c.a_sl9, c.a_sl10, \n";
+  $select .= "c.a_rtcp_avgjitter_mult10, c.a_rtcp_avgfr_mult10, \n";
 
   //CALLED DETAILS
   $select .= "c.called, c.called_domain, \n";
   $select .= "inet_ntoa(c.sipcalledip) AS called_ip, c.b_mos_f1_mult10, c.b_mos_f2_mult10, c.b_mos_adapt_mult10, \n";
   $select .= "c.b_d50, c.b_d70, c.b_d90, c.b_d120, c.b_d150, c.b_d200, c.b_d300, \n";
-  $select .= "c.b_sl1, c.b_sl2, c.b_sl3, c.b_sl4, c.b_sl5, c.b_sl6, c.b_sl7, c.b_sl8, c.b_sl9, c.b_sl10 \n";
+  $select .= "c.b_sl1, c.b_sl2, c.b_sl3, c.b_sl4, c.b_sl5, c.b_sl6, c.b_sl7, c.b_sl8, c.b_sl9, c.b_sl10, \n";
+  $select .= "c.b_rtcp_avgjitter_mult10, c.b_rtcp_avgfr_mult10 \n";
 
   $select .= ", c.lastSIPresponseNum AS last_response \n";
 
   $select .= "FROM cdr c ";
 
+  // CHECK FOR IGNORED SIP RESPONSES
+  if (strlen($sip_responses_to_ignore) > 2) {
+    $where_sql = " WHERE lastSIPresponseNum NOT IN ($sip_responses_to_ignore) ";
+  } else {
+    $where_sql = '';
+  }
+
   if(isset($_POST['start'])) {
 
-    $select .= "WHERE ";
-    $where_sql = '';
+    if (strlen($where_sql) < 2)
+      $where_sql = ' WHERE ';
 
     // CHECK DATES
     if((strlen($_POST['start']) > 2) && (strlen($_POST['end']) > 2)) {
       $start = mysql_real_escape_string($_POST['start']);
       $end =  mysql_real_escape_string($_POST['end']);
-      $where_sql = "calldate BETWEEN '$start' AND '$end' ";
+      if (strlen($where_sql) > 2)
+        $where_sql .= ' AND ';
+      $where_sql .= "calldate BETWEEN '$start' AND '$end' ";
     } else if (strlen($_POST['start']) > 2) {
       $start = mysql_real_escape_string($_POST['start']);
-      $where_sql = "calldate = '$start' ";
+      if (strlen($where_sql) > 2)
+        $where_sql .= ' AND ';
+      $where_sql .= "calldate = '$start' ";
     } else if (strlen($_POST['end']) > 2) {
       $end =  mysql_real_escape_string($_POST['end']);
-      $where_sql = "calldate = '$end' ";
+      if (strlen($where_sql) > 2)
+        $where_sql .= ' AND ';
+      $where_sql .= "calldate = '$end' ";
     }
 
     // CHECK CALLER FIELD
@@ -149,48 +164,91 @@
           break;
       }
     }
+
     $select .= $where_sql;
     $order_sql = "\n ORDER BY calldate DESC LIMIT $limit\n";
     $select .= $order_sql;
   } else {
+    $select .= $where_sql;
     $select .= " ORDER BY calldate DESC LIMIT $limit\n";
   }
   $result = mysql_query($select);
   if(mysql_num_rows($result) < 1)
   echo '<tr><td colspan="3"> <div align="center"> NO RESULTS </div></td></tr>';
 
+  $row_num = 1;
+
   while($row = mysql_fetch_array($result))
   {
-    echo '  <tr>';
-    echo '    <td class="right">' . $row['id'] . '</td>';
-    echo '    <td class="center">' . $row['calldate'] . '<br />(' . $row['duration'] . ')<br />' . $row['connect_duration'] . '</td>';
+    if ($row_num > 1) {
+      $row_num = 1;
+      echo '  <tr class="even_row">';
+    } else {
+      echo '  <tr class="odd_row">';
+      $row_num += 1;
+    }
+    echo '    <td style="text-align:center">' . $row['id'] . '</td>';
+    echo '    <td style="text-align:center">' . $row['calldate'] . '<br />(' . $row['duration'] . ')<br />' . $row['connect_duration'] . '</td>';
 
     //DISPLAY CALLER DETAILS
     echo '    <td class="right">' . $row['caller'] . '@' . $row['caller_domain'] . '<br />';
     echo '     (' . $row['callername'] . ')<br />' . get_sip_payload($row['a_payload']);
     echo '    </td>';
     if ($row['a_mos_f1_mult10'] > 0) {
-      echo '    <td class="right">' . $row['caller_ip'] . '<br />';
+      echo '    <td class="right"><strong>' . $row['caller_ip'] . '</strong><br />';
       echo '      ' . sprintf("%01.1f", $row['a_mos_f1_mult10'] / 10) . '|' . sprintf("%01.1f", $row['a_mos_f2_mult10'] / 10) . '|' . sprintf("%01.1f", $row['a_mos_adapt_mult10'] / 10) . '<br />';
       echo '      ' . $row['a_d50'] . ':' . $row['a_d70'] . ':' . $row['a_d90'] . ':' . $row['a_d120'] . ':' . $row['a_d150'] . ':' . $row['a_d200'] . ':' . $row['a_d300'] . '<br />';
       echo '      ' . $row['a_sl1'] . ':' . $row['a_sl2'] . ':' . $row['a_sl3'] . ':' . $row['a_sl4'] . ':' . $row['a_sl5'] . ':' . $row['a_sl6'] . ':' . $row['a_sl7'] . ':' . $row['a_sl8'] . ':' . $row['a_sl9'] . ':' . $row['a_sl10'] . '</td>';
     } else {
-      echo '    <td class="center">N/A</td>';
+      echo '    <td style="text-align:right">N/A</td>';
     }
 
     $last_response = get_sip_response($row['last_response']);
-    echo '    <td class="center">' . $row['last_response'] . ' ' . $last_response . '</td>';
+    echo '    <td style="text-align:center">' . $row['last_response'] . ' ' . $last_response . '</td>';
 
     //DISPLAY CALLED DETAILS
     echo '    <td class="right">' . $row['called'] . '@' . $row['called_domain'] . '<br />';
     echo '    </td>';
     if ($row['b_mos_f1_mult10'] > 0) {
-      echo '    <td class="right">' . $row['called_ip'] . '<br />';
+      echo '    <td class="right"><strong>' . $row['called_ip'] . '</strong><br />';
       echo '      ' . sprintf("%01.1f", $row['b_mos_f1_mult10'] / 10) . '|' . sprintf("%01.1f", $row['b_mos_f2_mult10'] / 10) . '|' . sprintf("%01.1f", $row['b_mos_adapt_mult10'] / 10).'<br />';
-      echo '      ' . $row['b_d50'] . ':' . $row['b_d70'] . ':' . $row['b_d90'] . ':' . $row['b_d120'] . ':' . $row['b_d150'] . ':' . $row['b_d200'] . ':' . $row['b_d300'] . '<br />';
-      echo '      ' . $row['b_sl1'] . ':' . $row['b_sl2'] . ':' . $row['b_sl3'] . ':' . $row['b_sl4'] . ':' . $row['b_sl5'] . ':' . $row['b_sl6'] . ':' . $row['b_sl7'] . ':' . $row['b_sl8'] . ':' . $row['b_sl9'] . ':' . $row['b_sl10'] . '</td>';
+      if ($row['b_rtcp_avgjitter_mult10'] > 0) {
+        echo '<span title="Average RTCP Jitter"';
+        if (($row['b_rtcp_avgjitter_mult10'] / 10) >= $ugly_jitter_avg) {
+          echo ' class="ugly"';
+        } else if (($row['b_rtcp_avgjitter_mult10'] / 10) >= $bad_jitter_avg) {
+          echo ' class="bad"';
+        }
+        echo '>J:' . $row['b_rtcp_avgjitter_mult10'] / 10 . '</span> | ';
+      }
+      echo '<span title="Delayed by: 0 - 50ms">' . $row['b_d50'] . '</span>:';
+      echo '<span title="Delayed by: 50 - 70ms">' . $row['b_d70'] . '</span>:';
+      echo '<span title="Delayed by: 70 - 90ms">' . $row['b_d90'] . '</span>:';
+      echo '<span title="Delayed by: 90 - 120ms">' . $row['b_d120'] . '</span>:';
+      echo '<span title="Delayed by: 120 - 150ms">' . $row['b_d150'] . '</span>:';
+      echo '<span title="Delayed by: 150 - 200ms">' . $row['b_d200'] . '</span>:';
+      echo '<span title="Delayed by: > 200ms">' . $row['b_d300'] . '</span><br />';
+      if ($row['b_rtcp_avgfr_mult10'] > 0) {
+        echo '<span title="Average RTCP Fraction Loss"';
+        if (($row['b_rtcp_avgfr_mult10'] / 10) >= $ugly_loss_avg) {
+          echo ' class="ugly"';
+        } else if (($row['b_rtcp_avgfr_mult10'] / 10) >= $ugly_loss_avg) {
+          echo ' class="bad"';
+        }
+        echo '>L:' . $row['b_rtcp_avgfr_mult10'] / 10 . '</span> | ';
+      }
+      echo '<span title="Consecutive Packet Loss Distribution: 1 packet">' . $row['b_sl1'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 2 packets">' . $row['b_sl2'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 3 packets">' . $row['b_sl3'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 4 packets">' . $row['b_sl4'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 5 packets">' . $row['b_sl5'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 6  packets">' . $row['b_sl6'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 7 packets">' . $row['b_sl7'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 8 packets">' . $row['b_sl8'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: 9 packets">' . $row['b_sl9'] . '</span>:';
+      echo '<span title="Consecutive Packet Loss Distribution: > 10 packets">' . $row['b_sl10'] . '</span></td>';
     } else {
-      echo '    <td class="center">N/A</td>';
+      echo '    <td style="text-align:right">N/A</td>';
     }
 
     echo '  </tr>';
@@ -218,8 +276,8 @@ echo $html;
 ?>
 </table>
 <?php
-  //UNCOMMMENT BELOW TO DEBUG THE SQL
-  //echo '<div style="text-align:left"><strong>SQL Used : </strong><pre>' . $select.'</pre>';
+  if ($show_sql)
+    echo '<div style="text-align:left"><strong>SQL Used : </strong><pre>' . $select.'</pre>';
 ?>
 </div>
 <script>
